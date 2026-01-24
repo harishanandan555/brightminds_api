@@ -26,7 +26,10 @@ const app = express();
 app.use(express.json());
 
 // Enable CORS
-app.use(cors());
+app.use(cors({
+    origin: ['https://brightminds-app.onrender.com', 'http://localhost:5173', 'http://localhost:3000'],
+    credentials: true
+}));
 
 // Set security headers
 // Set security headers

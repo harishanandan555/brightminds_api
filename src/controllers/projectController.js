@@ -1,4 +1,5 @@
 const Project = require('../models/Project');
+const Student = require('../models/Student');
 const User = require('../models/User');
 
 // @desc    List all projects (students)
@@ -6,7 +7,7 @@ const User = require('../models/User');
 // @access  Private (Teacher)
 exports.getProjects = async (req, res) => {
     try {
-        const projects = await Project.find({ teacher: req.user.id });
+        const projects = await Project.find({ teacher: req.user.id }).populate('student');
         res.status(200).json(projects);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -18,7 +19,7 @@ exports.getProjects = async (req, res) => {
 // @access  Private (Teacher/Parent)
 exports.getProject = async (req, res) => {
     try {
-        const project = await Project.findById(req.params.id);
+        const project = await Project.findById(req.params.id).populate('student');
 
         if (!project) {
             return res.status(404).json({ message: 'Project not found' });
@@ -52,6 +53,24 @@ exports.createProject = async (req, res) => {
     try {
         // Add user to req.body
         req.body.teacher = req.user.id;
+
+        // Check if studentId is provided
+        if (req.body.studentId) {
+            const student = await Student.findById(req.body.studentId);
+            if (!student) {
+                return res.status(404).json({ success: false, message: 'Student not found with id of ' + req.body.studentId });
+            }
+            req.body.student = req.body.studentId;
+        } else if (req.body.studentName) {
+            // Create new Student if not provided but details are present
+            const student = await Student.create({
+                studentName: req.body.studentName,
+                studentAge: req.body.studentAge,
+                gradeLevel: req.body.gradeLevel,
+                // Add other fields if necessary
+            });
+            req.body.student = student.id;
+        }
 
         const project = await Project.create(req.body);
 

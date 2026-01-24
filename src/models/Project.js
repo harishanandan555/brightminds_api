@@ -5,26 +5,23 @@ const ProjectSchema = new mongoose.Schema({
         type: mongoose.Schema.ObjectId,
         ref: 'User',
     },
+    student: {
+        type: mongoose.Schema.ObjectId,
+        ref: 'Student',
+    },
     studentName: {
         type: String,
-        required: [true, 'Please add a student name'],
+        // required: [true, 'Please add a student name'], // Make optional as we migrate to Student model
     },
     studentAge: {
         type: Number,
-        required: [true, 'Please add student age'],
+        // required: [true, 'Please add student age'],
     },
     gradeLevel: {
         type: String,
-        required: [true, 'Please add grade level'],
+        // required: [true, 'Please add grade level'],
     },
-    eligibilityStatus: {
-        type: String,
-        enum: ['Eligible', 'Ineligible', 'Pending evaluation'],
-        default: 'Pending evaluation',
-    },
-    eligibilityDate: {
-        type: Date,
-    },
+    // Eligibility fields moved to Student model
     presentLevels: {
         type: String,
     },

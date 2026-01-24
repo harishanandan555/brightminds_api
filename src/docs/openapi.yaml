@@ -296,22 +296,22 @@ paths:
                           schema:
                               type: array
                               items:
-                                  $ref: '#/components/schemas/Project'
+                                  $ref: '#/components/schemas/Student'
       post:
-          summary: Add a child (Create Project)
+          summary: Add a child (Create Student)
           tags: [Parent]
           requestBody:
               content:
                   application/json:
                       schema:
-                          $ref: '#/components/schemas/ProjectInput'
+                          $ref: '#/components/schemas/StudentInput'
           responses:
               '201':
                   description: Child added
                   content:
                       application/json:
                           schema:
-                              $ref: '#/components/schemas/Project'
+                              $ref: '#/components/schemas/Student'
   /parent/children/{id}:
       get:
           summary: Get child details
@@ -328,7 +328,7 @@ paths:
                   content:
                       application/json:
                           schema:
-                              $ref: '#/components/schemas/Project'
+                              $ref: '#/components/schemas/Student'
       put:
           summary: Update child profile (Family Voice)
           tags: [Parent]
@@ -354,7 +354,7 @@ paths:
                   content:
                       application/json:
                           schema:
-                              $ref: '#/components/schemas/Project'
+                              $ref: '#/components/schemas/Student'
   /parent/children/{id}/share:
       post:
           summary: Share child updates with teacher
@@ -385,12 +385,6 @@ components:
                type: integer
             gradeLevel:
                type: string
-            eligibilityStatus:
-               type: string
-               enum: [Eligible, Ineligible, Pending evaluation]
-            eligibilityDate:
-               type: string
-               format: date
             presentLevels:
                type: string
             currentPerformance:
@@ -416,6 +410,8 @@ components:
               type: string
             teacher:
               type: string
+            student:
+              type: string
             documents:
               type: array
               items:
@@ -430,6 +426,43 @@ components:
                         format: date-time
             aiAnalysis:
               type: string
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+    StudentInput:
+       type: object
+       required: [studentName, studentAge, gradeLevel]
+       properties:
+            studentName:
+               type: string
+            studentAge:
+               type: integer
+            gradeLevel:
+               type: string
+            eligibilityStatus:
+               type: string
+               enum: [Eligible, Ineligible, Pending evaluation]
+            eligibilityDate:
+               type: string
+               format: date
+    Student:
+      allOf:
+        - $ref: '#/components/schemas/StudentInput'
+        - type: object
+          properties:
+            _id:
+              type: string
+            parents:
+              type: array
+              items:
+                  type: string
+            parentSurvey:
+               type: string
+            currentPerformance:
+               type: string
             createdAt:
               type: string
               format: date-time

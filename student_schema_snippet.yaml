@@ -1,0 +1,34 @@
+    StudentInput:
+       type: object
+       required: [studentName, studentAge, gradeLevel]
+       properties:
+            studentName:
+               type: string
+            studentAge:
+               type: integer
+            gradeLevel:
+               type: string
+            eligibilityStatus:
+               type: string
+               enum: [Eligible, Ineligible, Pending evaluation]
+    Student:
+      allOf:
+        - $ref: '#/components/schemas/StudentInput'
+        - type: object
+          properties:
+            _id:
+              type: string
+            parents:
+              type: array
+              items:
+                  type: string
+            parentSurvey:
+               type: string
+            currentPerformance:
+               type: string
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
