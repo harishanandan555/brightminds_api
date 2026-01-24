@@ -1,0 +1,438 @@
+openapi: 3.0.0
+info:
+  title: BrightMinds API Platform
+  description: |
+    # Empowering Special Education through Technology
+
+    The BrightMinds API provides a secure, compliant, and robust backend for applications supporting the education of children with special needs. 
+
+    ## Compliance & Safety Standards
+    We are committed to maintaining the highest standards of data privacy and security, adhering to:
+    - **FERPA (Family Educational Rights and Privacy Act)**: Ensuring the privacy of student education records.
+    - **COPPA (Children's Online Privacy Protection Act)**: Strict controls on data collection from children under 13.
+    - **ADA (Americans with Disabilities Act)**: Promoting accessible digital experiences for all users.
+    - **HIPAA**: Where applicable for health-related data.
+
+    ## Key Features
+    - **Secure Role-Based Access**: Dedicated portals for Teachers, Parents, and Administrators.
+    - **IEP Progress Tracking**: Real-time monitoring of Individualized Education Program goals.
+    - **Multimedia Support**: Integration of visual aids and assistive technologies.
+    
+    _Built with care for the BrightMinds community._
+  contact:
+    name: BrightMinds Support
+    email: support@brightminds.edu
+    url: https://brightminds.edu/support
+  version: 1.0.0
+servers:
+  - url: http://localhost:5002/api/v1
+    description: Local server
+security:
+  - bearerAuth: []
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                role:
+                  type: string
+                  enum: [teacher, parent]
+                firstName:
+                    type: string
+                lastName:
+                    type: string
+      responses:
+        '201':
+          description: Created
+  /auth/login:
+    post:
+      summary: Login user
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Success
+  /users/me:
+    get:
+      summary: Get current user profile
+      tags: [User Management]
+      responses:
+        '200':
+          description: User profile
+    put:
+        summary: Update user profile
+        tags: [User Management]
+        requestBody:
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            firstName: 
+                                type: string
+                            lastName:
+                                type: string
+        responses:
+            '200':
+                description: Updated profile
+  /projects:
+    get:
+        summary: List all projects (Teacher)
+        tags: [Projects]
+        responses:
+            '200':
+                description: List of projects
+                content:
+                    application/json:
+                        schema:
+                            type: array
+                            items:
+                                $ref: '#/components/schemas/Project'
+    post:
+        summary: Create a new project
+        tags: [Projects]
+        requestBody:
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/ProjectInput'
+        responses:
+            '201':
+                description: Project created
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/Project'
+
+  /projects/{id}:
+      get:
+          summary: Get project details
+          tags: [Projects]
+          parameters:
+            - in: path
+              name: id
+              schema:
+                  type: string
+              required: true
+          responses:
+              '200':
+                  description: Project details
+                  content:
+                      application/json:
+                          schema:
+                              $ref: '#/components/schemas/Project'
+      put:
+          summary: Update project
+          tags: [Projects]
+          parameters:
+              - in: path
+                name: id
+                schema: 
+                    type: string
+                required: true
+          requestBody:
+              content:
+                  application/json:
+                      schema:
+                          $ref: '#/components/schemas/ProjectInput'
+          responses:
+              '200':
+                  description: Updated project
+                  content:
+                      application/json:
+                          schema:
+                              $ref: '#/components/schemas/Project'
+      delete:
+          summary: Delete project
+          tags: [Projects]
+          parameters:
+            - in: path
+              name: id
+              schema:
+                type: string
+              required: true
+          responses:
+              '200':
+                description: Deleted
+
+  /projects/analysis:
+      post:
+          summary: Generate AI Analysis
+          tags: [Projects]
+          requestBody:
+              content:
+                  application/json:
+                      schema:
+                          type: object
+                          required: [studentName, gradeLevel, studentAge]
+                          properties:
+                              studentName:
+                                  type: string
+                              studentAge:
+                                  type: integer
+                              gradeLevel:
+                                  type: string
+                              presentLevels:
+                                  type: string
+                              currentPerformance:
+                                  type: string
+                              goals:
+                                  type: string
+                              accommodations:
+                                  type: string
+                              relatedServices:
+                                  type: array
+                                  items:
+                                      type: string
+                              projectId:
+                                  type: string
+                                  description: Optional ID of an existing project to save the analysis to
+          responses:
+              '200':
+                  description: Analysis generated
+                  content:
+                      application/json:
+                          schema:
+                              type: object
+                              properties:
+                                  analysis:
+                                      type: string
+  /projects/{id}/analysis:
+      post:
+          summary: Generate AI Analysis using Project Data
+          tags: [Projects]
+          parameters:
+            - in: path
+              name: id
+              schema:
+                  type: string
+              required: true
+          responses:
+              '200':
+                  description: Analysis generated and saved
+                  content:
+                      application/json:
+                          schema:
+                              type: object
+                              properties:
+                                  analysis:
+                                      type: string
+  /projects/{id}/parents:
+      post:
+          summary: Add a parent to a project
+          tags: [Projects]
+          parameters:
+            - in: path
+              name: id
+              schema:
+                  type: string
+              required: true
+          requestBody:
+              content:
+                  application/json:
+                      schema:
+                          type: object
+                          required: [email]
+                          properties:
+                              email:
+                                  type: string
+                                  format: email
+          responses:
+              '200':
+                  description: Parent added
+              '400':
+                  description: Invalid input or parent already exists
+  /projects/{id}/parents/{parentId}:
+      delete:
+          summary: Remove a parent from a project
+          tags: [Projects]
+          parameters:
+            - in: path
+              name: id
+              schema:
+                  type: string
+              required: true
+            - in: path
+              name: parentId
+              schema:
+                  type: string
+              required: true
+          responses:
+              '200':
+                  description: Parent removed
+  /parent/children:
+      get:
+          summary: Get all children for parent
+          tags: [Parent]
+          responses:
+              '200':
+                  description: List of children
+                  content:
+                      application/json:
+                          schema:
+                              type: array
+                              items:
+                                  $ref: '#/components/schemas/Project'
+      post:
+          summary: Add a child (Create Project)
+          tags: [Parent]
+          requestBody:
+              content:
+                  application/json:
+                      schema:
+                          $ref: '#/components/schemas/ProjectInput'
+          responses:
+              '201':
+                  description: Child added
+                  content:
+                      application/json:
+                          schema:
+                              $ref: '#/components/schemas/Project'
+  /parent/children/{id}:
+      get:
+          summary: Get child details
+          tags: [Parent]
+          parameters:
+            - in: path
+              name: id
+              schema:
+                  type: string
+              required: true
+          responses:
+              '200':
+                  description: Child details
+                  content:
+                      application/json:
+                          schema:
+                              $ref: '#/components/schemas/Project'
+      put:
+          summary: Update child profile (Family Voice)
+          tags: [Parent]
+          parameters:
+              - in: path
+                name: id
+                schema: 
+                    type: string
+                required: true
+          requestBody:
+              content:
+                  application/json:
+                      schema:
+                          type: object
+                          properties:
+                              parentSurvey:
+                                  type: string
+                              currentPerformance:
+                                  type: string
+          responses:
+              '200':
+                  description: Updated child profile
+                  content:
+                      application/json:
+                          schema:
+                              $ref: '#/components/schemas/Project'
+  /parent/children/{id}/share:
+      post:
+          summary: Share child updates with teacher
+          tags: [Parent]
+          parameters:
+            - in: path
+              name: id
+              schema:
+                  type: string
+              required: true
+          responses:
+              '200':
+                  description: Teacher notified
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ProjectInput:
+       type: object
+       required: [studentName, studentAge, gradeLevel]
+       properties:
+            studentName:
+               type: string
+            studentAge:
+               type: integer
+            gradeLevel:
+               type: string
+            eligibilityStatus:
+               type: string
+               enum: [Eligible, Ineligible, Pending evaluation]
+            eligibilityDate:
+               type: string
+               format: date
+            presentLevels:
+               type: string
+            currentPerformance:
+               type: string
+            goals:
+               type: string
+            accommodations:
+               type: string
+            relatedServices:
+               type: array
+               items: 
+                   type: string
+            parentSurvey:
+               type: string
+            notes:
+               type: string
+    Project:
+      allOf:
+        - $ref: '#/components/schemas/ProjectInput'
+        - type: object
+          properties:
+            _id:
+              type: string
+            teacher:
+              type: string
+            documents:
+              type: array
+              items:
+                type: object
+                properties:
+                    name: 
+                        type: string
+                    url:
+                        type: string
+                    uploadedAt:
+                        type: string
+                        format: date-time
+            aiAnalysis:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
