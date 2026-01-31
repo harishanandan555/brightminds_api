@@ -10,6 +10,7 @@ exports.getProjects = async (req, res) => {
         const projects = await Project.find({ teacher: req.user.id }).populate('student');
         res.status(200).json(projects);
     } catch (error) {
+        console.error('Error in getProjects:', error);
         res.status(500).json({ message: error.message });
     }
 };
@@ -19,6 +20,11 @@ exports.getProjects = async (req, res) => {
 // @access  Private (Teacher/Parent)
 exports.getProject = async (req, res) => {
     try {
+        // Validate ID format
+        if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(404).json({ message: 'Project not found (Invalid ID)' });
+        }
+
         const project = await Project.findById(req.params.id).populate('student');
 
         if (!project) {
@@ -29,7 +35,7 @@ exports.getProject = async (req, res) => {
         if (project.teacher.toString() !== req.user.id) {
             // Check if user is a parent of this project
             if (req.user.role === 'parent') {
-                if (!project.parents.includes(req.user.id)) {
+                if (!project.parents.map(p => p.toString()).includes(req.user.id)) {
                     return res.status(403).json({ message: 'Not authorized' });
                 }
             } else {
@@ -86,6 +92,10 @@ exports.createProject = async (req, res) => {
 // @access  Private (Teacher)
 exports.updateProject = async (req, res) => {
     try {
+        if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(404).json({ message: 'Project not found (Invalid ID)' });
+        }
+
         let project = await Project.findById(req.params.id);
 
         if (!project) {
@@ -96,7 +106,14 @@ exports.updateProject = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized to update this project' });
         }
 
-        project = await Project.findByIdAndUpdate(req.params.id, req.body, {
+        // Map 'analysis' to 'aiAnalysis' if frontend sends 'analysis'
+        const updateData = { ...req.body };
+        if (updateData.analysis && !updateData.aiAnalysis) {
+            updateData.aiAnalysis = updateData.analysis;
+            delete updateData.analysis;
+        }
+
+        project = await Project.findByIdAndUpdate(req.params.id, updateData, {
             new: true,
             runValidators: true,
         });
@@ -112,6 +129,10 @@ exports.updateProject = async (req, res) => {
 // @access  Private (Teacher)
 exports.deleteProject = async (req, res) => {
     try {
+        if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(404).json({ message: 'Project not found (Invalid ID)' });
+        }
+
         const project = await Project.findById(req.params.id);
 
         if (!project) {
@@ -177,38 +198,27 @@ exports.generateAnalysis = async (req, res) => {
         Accommodations: ${accommodations}
         Services: ${relatedServices ? relatedServices.join(', ') : 'None'}
 
-        Based on this data, generate a detailed Instructional Planning Plan structured strictly as follows:
+        Based on this data, generate a detailed Instructional Planning Plan in strictly valid JSON format.
+        Do not include markdown formatting (like \`\`\`json). Return ONLY the JSON object.
 
-        1. Instructional Focus Areas
-           - Based on present levels and current performance data, prioritize:
-             * Academic skill development with structured support
-             * Cognitive engagement and independent task completion
-             * Functional skills including attention, organization, and self-regulation
-             * Generalization of skills across settings
-
-        2. Instructional Strategies
-           - Academic Instruction: Explicit instruction, small steps, visual supports, small-group/1:1, immediate feedback.
-           - Cognitive & Executive Function Support: Visual schedules, task initiation strategies, cues, processing time.
-           - Functional & Behavioral Instruction: Teach expectations, reinforce positive behaviors, structured routines, self-monitoring.
-
-        3. Goal-Aligned Instruction
-           - Short-Term Instructional Plan: Practice frequency, embedding in routines, progress monitoring tools (weekly data, logs, samples).
-           - Long-Term Instructional Plan: Increasing independence, fading prompts, generalization, future expectations.
-
-        4. Accommodations & Supports Implementation
-           - Detail specific supports (extended time, preferential seating, visual aids, modified assignments, assistive tech) and ensure consistent use.
-
-        5. Related Services Integration
-           - Align with classroom instruction: Speech-Language, OT, Behavior Intervention, Counseling, Assistive Tech, Transportation.
-
-        6. Progress Monitoring & Review Plan
-           - Monthly review, goal adjustment, strategy revision, documentation.
-
-        7. Family Collaboration Plan
-           - Regular updates, home strategies, feedback during meetings, consistent communication.
-
-        8. AI Analysis & Summary (Planning Rationale)
-           - Provide a summary explaining how this plan builds on strengths and addresses needs to promote growth.`;
+        The JSON structure must be exactly as follows:
+        {
+            "summary": "Brief summary of the plan...",
+            "instructionalFocus": [
+                { "area": "Academic/Cognitive/Functional/Generalization", "details": "Specific details..." }
+            ],
+            "strategies": {
+                "academic": ["Strategy 1", "Strategy 2"],
+                "cognitive": ["Strategy 1"],
+                "behavioral": ["Strategy 1"]
+            },
+            "shortTermGoals": ["Goal 1", "Goal 2"],
+            "longTermGoals": ["Goal 1", "Goal 2"],
+            "accommodations": ["Accommodation 1"],
+            "services": ["Service 1"],
+            "progressMonitoring": "Plan for monitoring...",
+            "familyCollaboration": "Plan for family..."
+        }`;
 
         const OpenAI = require('openai');
         const openai = new OpenAI({
@@ -218,9 +228,29 @@ exports.generateAnalysis = async (req, res) => {
         const completion = await openai.chat.completions.create({
             messages: [{ role: 'user', content: prompt }],
             model: 'gpt-3.5-turbo',
+            response_format: { type: "json_object" }, // Ensure JSON mode if supported
         });
 
-        const analysis = completion.choices[0].message.content;
+        let analysisContent = completion.choices[0].message.content;
+
+        // Clean up markdown if present (just in case)
+        if (analysisContent.startsWith('```json')) {
+            analysisContent = analysisContent.replace(/^```json\n/, '').replace(/\n```$/, '');
+        } else if (analysisContent.startsWith('```')) {
+            analysisContent = analysisContent.replace(/^```\n/, '').replace(/\n```$/, '');
+        }
+
+        let analysis;
+        try {
+            analysis = JSON.parse(analysisContent);
+        } catch (e) {
+            console.error('Failed to parse AI response as JSON', analysisContent);
+            // Fallback to raw text if parsing fails
+            analysis = {
+                rawText: analysisContent,
+                summary: "Analysis generated but failed parsing. See raw text."
+            };
+        }
 
         // If projectId is provided, save to database
         if (req.body.projectId) {
@@ -285,38 +315,27 @@ exports.generateProjectAnalysis = async (req, res) => {
         Accommodations: ${accommodations || 'Not provided'}
         Services: ${relatedServices && relatedServices.length > 0 ? relatedServices.join(', ') : 'None'}
 
-        Based on this data, generate a detailed Instructional Planning Plan structured strictly as follows:
+        Based on this data, generate a detailed Instructional Planning Plan in strictly valid JSON format.
+        Do not include markdown formatting (like \`\`\`json). Return ONLY the JSON object.
 
-        1. Instructional Focus Areas
-           - Based on present levels and current performance data, prioritize:
-             * Academic skill development with structured support
-             * Cognitive engagement and independent task completion
-             * Functional skills including attention, organization, and self-regulation
-             * Generalization of skills across settings
-
-        2. Instructional Strategies
-           - Academic Instruction: Explicit instruction, small steps, visual supports, small-group/1:1, immediate feedback.
-           - Cognitive & Executive Function Support: Visual schedules, task initiation strategies, cues, processing time.
-           - Functional & Behavioral Instruction: Teach expectations, reinforce positive behaviors, structured routines, self-monitoring.
-
-        3. Goal-Aligned Instruction
-           - Short-Term Instructional Plan: Practice frequency, embedding in routines, progress monitoring tools (weekly data, logs, samples).
-           - Long-Term Instructional Plan: Increasing independence, fading prompts, generalization, future expectations.
-
-        4. Accommodations & Supports Implementation
-           - Detail specific supports (extended time, preferential seating, visual aids, modified assignments, assistive tech) and ensure consistent use.
-
-        5. Related Services Integration
-           - Align with classroom instruction: Speech-Language, OT, Behavior Intervention, Counseling, Assistive Tech, Transportation.
-
-        6. Progress Monitoring & Review Plan
-           - Monthly review, goal adjustment, strategy revision, documentation.
-
-        7. Family Collaboration Plan
-           - Regular updates, home strategies, feedback during meetings, consistent communication.
-
-        8. AI Analysis & Summary (Planning Rationale)
-           - Provide a summary explaining how this plan builds on strengths and addresses needs to promote growth.`;
+        The JSON structure must be exactly as follows:
+        {
+            "summary": "Brief summary of the plan...",
+            "instructionalFocus": [
+                { "area": "Academic/Cognitive/Functional/Generalization", "details": "Specific details..." }
+            ],
+            "strategies": {
+                "academic": ["Strategy 1", "Strategy 2"],
+                "cognitive": ["Strategy 1"],
+                "behavioral": ["Strategy 1"]
+            },
+            "shortTermGoals": ["Goal 1", "Goal 2"],
+            "longTermGoals": ["Goal 1", "Goal 2"],
+            "accommodations": ["Accommodation 1"],
+            "services": ["Service 1"],
+            "progressMonitoring": "Plan for monitoring...",
+            "familyCollaboration": "Plan for family..."
+        }`;
 
         const OpenAI = require('openai');
         const openai = new OpenAI({
@@ -326,9 +345,28 @@ exports.generateProjectAnalysis = async (req, res) => {
         const completion = await openai.chat.completions.create({
             messages: [{ role: 'user', content: prompt }],
             model: 'gpt-3.5-turbo',
+            response_format: { type: "json_object" },
         });
 
-        const analysis = completion.choices[0].message.content;
+        let analysisContent = completion.choices[0].message.content;
+
+        // Clean up markdown if present
+        if (analysisContent.startsWith('```json')) {
+            analysisContent = analysisContent.replace(/^```json\n/, '').replace(/\n```$/, '');
+        } else if (analysisContent.startsWith('```')) {
+            analysisContent = analysisContent.replace(/^```\n/, '').replace(/\n```$/, '');
+        }
+
+        let analysis;
+        try {
+            analysis = JSON.parse(analysisContent);
+        } catch (e) {
+            console.error('Failed to parse AI response as JSON', analysisContent);
+            analysis = {
+                rawText: analysisContent,
+                summary: "Analysis generated but failed parsing. See raw text."
+            };
+        }
 
         // Save to database
         project.aiAnalysis = analysis;

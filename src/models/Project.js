@@ -22,39 +22,58 @@ const ProjectSchema = new mongoose.Schema({
         // required: [true, 'Please add grade level'],
     },
     // Eligibility fields moved to Student model
+    // Structured IEP Data
+    studentProfile: {
+        strengths: [String],
+        needs: [String],
+        interests: [String],
+    },
     presentLevels: {
-        type: String,
+        academic: String,
+        functional: String,
+        socialEmotional: String,
+        behavioral: String,
+        // Legacy fallback
+        general: String
     },
-    currentPerformance: {
-        type: String,
-    },
-    goals: {
-        type: String,
-    },
-    accommodations: {
-        type: String,
-    },
-    relatedServices: {
-        type: [String],
-    },
-    documents: [
-        {
-            name: String,
-            url: String,
-            uploadedAt: {
-                type: Date,
-                default: Date.now
-            }
-        }
-    ],
-    parentSurvey: {
-        type: String,
-    },
-    notes: {
-        type: String,
-    },
+    goals: [{
+        area: String, // e.g., Reading, Math, Behavior
+        description: String,
+        baseline: String,
+        target: String,
+        timeline: String,
+    }],
+    accommodations: [{
+        category: String, // e.g., Instruction, Environment, Assessment
+        description: String,
+    }],
+    relatedServices: [{
+        serviceType: String, // e.g., Speech-Language, OT
+        frequency: String,
+        duration: String,
+        location: String,
+    }],
+
+    // Structured AI Analysis
     aiAnalysis: {
-        type: String,
+        summary: String,
+        instructionalFocus: [{
+            area: String,
+            details: String
+        }],
+        strategies: {
+            academic: [String],
+            cognitive: [String],
+            behavioral: [String]
+        },
+        shortTermGoals: [String],
+        longTermGoals: [String],
+        accommodations: [String],
+        services: [String],
+        progressMonitoring: String,
+        familyCollaboration: String,
+        // Legacy fallback
+        rawText: String
     },
     // Array of parents who have access to this student's project
     parents: [{
