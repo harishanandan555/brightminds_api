@@ -188,9 +188,9 @@ paths:
                   application/json:
                       schema:
                           type: object
-                          required: [studentName, gradeLevel, studentAge]
+                          required: [projectName, gradeLevel, studentAge]
                           properties:
-                              studentName:
+                              projectName:
                                   type: string
                               studentAge:
                                   type: integer
@@ -220,8 +220,52 @@ paths:
                               type: object
                               properties:
                                   analysis:
+                                      $ref: '#/components/schemas/AiAnalysis'
+  /projects/extract-iep:
+      post:
+          summary: Extract IEP from uploaded document
+          description: |
+            Upload a PDF or DOCX file containing an IEP document. The API will extract the text and use AI to parse it into structured data that can be used to create a project.
+            
+            **Supported file types:** PDF, DOCX
+            **Maximum file size:** 10MB
+          tags: [Projects]
+          requestBody:
+              required: true
+              content:
+                  multipart/form-data:
+                      schema:
+                          type: object
+                          required: [file]
+                          properties:
+                              file:
+                                  type: string
+                                  format: binary
+                                  description: PDF or DOCX file containing IEP document
+          responses:
+              '200':
+                  description: IEP extracted successfully
+                  content:
+                      application/json:
+                          schema:
+                              type: object
+                              properties:
+                                  success:
+                                      type: boolean
+                                  message:
                                       type: string
+                                  iepData:
+                                      $ref: '#/components/schemas/ExtractedIEP'
+                                  projectData:
+                                      $ref: '#/components/schemas/ProjectInput'
+                                  extractedTextLength:
+                                      type: integer
+              '400':
+                  description: No file uploaded or unsupported file type
+              '500':
+                  description: Server error or AI parsing failure
   /projects/{id}/analysis:
+
       post:
           summary: Generate AI Analysis using Project Data
           tags: [Projects]
@@ -240,7 +284,7 @@ paths:
                               type: object
                               properties:
                                   analysis:
-                                      type: string
+                                      $ref: '#/components/schemas/AiAnalysis'
   /projects/{id}/parents:
       post:
           summary: Add a parent to a project
@@ -284,6 +328,212 @@ paths:
           responses:
               '200':
                   description: Parent removed
+  /projects/{id}/progress-item:
+      get:
+          summary: Get all progress items for a project
+          tags: [Progress Items]
+          parameters:
+            - in: path
+              name: id
+              schema:
+                  type: string
+              required: true
+              description: MongoDB ObjectId of the project
+          responses:
+              '200':
+                  description: Progress items retrieved successfully
+                  content:
+                      application/json:
+                          schema:
+                              type: object
+                              properties:
+                                  success: { type: boolean }
+                                  progressItems:
+                                      type: array
+                                      items:
+                                          $ref: '#/components/schemas/ProgressItem'
+                                  progressHistory:
+                                      type: array
+                                      items:
+                                          $ref: '#/components/schemas/ProgressHistoryEntry'
+                                  count: { type: integer }
+                          example:
+                              success: true
+                              progressItems:
+                                - id: "abc123"
+                                  title: "[Short-Term] Improve reading comprehension"
+                                  status: "pending"
+                                  notes: "Auto-generated from AI analysis"
+                                  createdAt: "2026-02-05T12:00:00.000Z"
+                                  updatedAt: "2026-02-05T12:00:00.000Z"
+                              progressHistory:
+                                - action: "created"
+                                  itemTitle: "[Short-Term] Improve reading comprehension"
+                                  notes: "Auto-generated from AI analysis"
+                                  timestamp: "2026-02-05T12:00:00.000Z"
+                              count: 1
+              '404':
+                  description: Project not found
+              '403':
+                  description: Not authorized to view this project
+      post:
+          summary: Add progress items (array)
+          description: |
+            Add multiple progress items to a project.
+            
+            **Request Format:**
+            ```json
+            {
+              "items": [
+                { "title": "[Short-Term] Goal 1" },
+                { "title": "[Long-Term] Goal 2" },
+                { "title": "[Focus] Specific focus area" }
+              ]
+            }
+            ```
+            
+            Each item requires a `title` field. Optional: `status` and `notes`.
+          tags: [Progress Items]
+          parameters:
+            - in: path
+              name: id
+              schema:
+                  type: string
+              required: true
+              description: MongoDB ObjectId of the project
+          requestBody:
+              required: true
+              content:
+                  application/json:
+                      schema:
+                          type: object
+                          required: [items]
+                          properties:
+                              items:
+                                  type: array
+                                  description: Array of progress items to add
+                                  items:
+                                      type: object
+                                      required: [title]
+                                      properties:
+                                          title:
+                                              type: string
+                                              description: Goal or progress item title
+                                          status:
+                                              type: string
+                                              enum: [pending, in_progress, completed]
+                                              default: pending
+                                          notes:
+                                              type: string
+                      example:
+                          items:
+                            - title: "[Short-Term] Improve reading comprehension by 20%"
+                            - title: "[Short-Term] Complete weekly vocabulary exercises"
+                            - title: "[Long-Term] Achieve grade-level reading proficiency"
+                            - title: "[Focus] Phonemic awareness: Practice blending sounds"
+          responses:
+              '201':
+                  description: Progress items created
+                  content:
+                      application/json:
+                          schema:
+                              type: object
+                              properties:
+                                  success: { type: boolean }
+                                  progressItems:
+                                      type: array
+                                      items:
+                                          $ref: '#/components/schemas/ProgressItem'
+                                  addedCount: { type: integer }
+                          example:
+                              success: true
+                              progressItems:
+                                - id: "abc123"
+                                  title: "[Short-Term] Improve reading comprehension by 20%"
+                                  status: "pending"
+                                  createdAt: "2026-02-05T12:00:00.000Z"
+                                  updatedAt: "2026-02-05T12:00:00.000Z"
+                                - id: "abc124"
+                                  title: "[Long-Term] Achieve grade-level reading proficiency"
+                                  status: "pending"
+                                  createdAt: "2026-02-05T12:00:00.000Z"
+                                  updatedAt: "2026-02-05T12:00:00.000Z"
+                              addedCount: 2
+              '400':
+                  description: Invalid request body (missing items array or titles)
+              '404':
+                  description: Project not found
+  /projects/{id}/progress-item/{itemId}:
+      put:
+          summary: Update a progress item
+          tags: [Progress Items]
+          parameters:
+            - in: path
+              name: id
+              schema:
+                  type: string
+              required: true
+              description: MongoDB ObjectId of the project
+            - in: path
+              name: itemId
+              schema:
+                  type: string
+              required: true
+              description: ID of the progress item
+          requestBody:
+              content:
+                  application/json:
+                      schema:
+                          type: object
+                          properties:
+                              title:
+                                  type: string
+                              status:
+                                  type: string
+                                  enum: [pending, in_progress, completed]
+                              notes:
+                                  type: string
+          responses:
+              '200':
+                  description: Progress item updated
+                  content:
+                      application/json:
+                          schema:
+                              type: object
+                              properties:
+                                  success: { type: boolean }
+                                  progressItem:
+                                      $ref: '#/components/schemas/ProgressItem'
+              '404':
+                  description: Project or progress item not found
+      delete:
+          summary: Delete a progress item
+          tags: [Progress Items]
+          parameters:
+            - in: path
+              name: id
+              schema:
+                  type: string
+              required: true
+              description: MongoDB ObjectId of the project
+            - in: path
+              name: itemId
+              schema:
+                  type: string
+              required: true
+              description: ID of the progress item
+          responses:
+              '200':
+                  description: Progress item deleted
+                  content:
+                      application/json:
+                          schema:
+                              type: object
+                              properties:
+                                  success: { type: boolean }
+                                  message: { type: string }
+              '404':
+                  description: Project or progress item not found
   /parent/children:
       get:
           summary: Get all children for parent
@@ -376,31 +626,109 @@ components:
       bearerFormat: JWT
   schemas:
     ProjectInput:
-       type: object
-       required: [studentName, studentAge, gradeLevel]
-       properties:
-            studentName:
-               type: string
-            studentAge:
-               type: integer
-            gradeLevel:
-               type: string
-            presentLevels:
-               type: string
-            currentPerformance:
-               type: string
-            goals:
-               type: string
-            accommodations:
-               type: string
-            relatedServices:
-               type: array
-               items: 
-                   type: string
-            parentSurvey:
-               type: string
-            notes:
-               type: string
+      type: object
+      required: [projectName, studentAge, gradeLevel]
+      properties:
+        projectName:
+          type: string
+        studentAge:
+          type: integer
+        gradeLevel:
+          type: string
+        studentProfile:
+          type: object
+          properties:
+            strengths:
+              type: array
+              items: { type: string }
+            needs:
+              type: array
+              items: { type: string }
+            interests:
+              type: array
+              items: { type: string }
+        presentLevels:
+          type: object
+          properties:
+            academic: { type: string }
+            functional: { type: string }
+            socialEmotional: { type: string }
+            behavioral: { type: string }
+            general: { type: string }
+        currentPerformance:
+          type: string
+        goals:
+          type: array
+          items:
+            type: object
+            properties:
+              area: { type: string }
+              description: { type: string }
+              baseline: { type: string }
+              target: { type: string }
+              timeline: { type: string }
+        accommodations:
+          type: array
+          items:
+            type: object
+            properties:
+              category: { type: string }
+              description: { type: string }
+        relatedServices:
+          type: array
+          items: 
+            type: object
+            properties:
+              serviceType: { type: string }
+              frequency: { type: string }
+              duration: { type: string }
+              location: { type: string }
+        parentSurvey:
+          type: string
+        notes:
+          type: string
+    AiAnalysis:
+      type: object
+      properties:
+        summary: { type: string }
+        instructionalFocus:
+          type: array
+          items:
+            type: object
+            properties:
+              area: { type: string }
+              details: { type: string }
+        strategies:
+          type: object
+          properties:
+            academic: { type: array, items: { type: string } }
+            cognitive: { type: array, items: { type: string } }
+            behavioral: { type: array, items: { type: string } }
+        shortTermGoals: { type: array, items: { type: string } }
+        longTermGoals: { type: array, items: { type: string } }
+        accommodations: { type: array, items: { type: string } }
+        services: { type: array, items: { type: string } }
+        progressMonitoring: { type: string }
+        familyCollaboration: { type: string }
+        rawText: { type: string }
+      example:
+        summary: "Based on the assessment, the student shows strong potential in reading comprehension but requires targeted support in reading fluency and decoding multisyllabic words."
+        instructionalFocus:
+          - area: "Academic"
+            details: "Improve reading fluency and decoding stamina."
+          - area: "Cognitive"
+            details: "Enhance focus during independent reading tasks."
+        strategies:
+          academic: ["Phonics-based instruction", "Repeated reading"]
+          cognitive: ["Visual timers", "Chunked reading assignments"]
+          behavioral: ["Positive reinforcement for task completion"]
+        shortTermGoals: ["Read 100 words per minute with 90% accuracy", "Complete 15 minutes of independent reading"]
+        longTermGoals: ["Read grade-level text with proper intonation and expression", "Self-monitor attention during 30-minute tasks"]
+        accommodations: ["Extended time on reading assignments", "Quiet testing location"]
+        services: ["Speech-Language Therapy 30 mins/week"]
+        progressMonitoring: "Weekly running records and fluency checks."
+        familyCollaboration: "Monthly progress updates and home reading log reviews."
+        rawText: "..."
     Project:
       allOf:
         - $ref: '#/components/schemas/ProjectInput'
@@ -417,37 +745,83 @@ components:
               items:
                 type: object
                 properties:
-                    name: 
-                        type: string
-                    url:
-                        type: string
-                    uploadedAt:
-                        type: string
-                        format: date-time
+                  name: 
+                    type: string
+                  url:
+                    type: string
+                  uploadedAt:
+                    type: string
+                    format: date-time
             aiAnalysis:
-              type: string
+              $ref: '#/components/schemas/AiAnalysis'
+            progressItems:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProgressItem'
+            progressHistory:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProgressHistoryEntry'
             createdAt:
               type: string
               format: date-time
             updatedAt:
               type: string
               format: date-time
+    ProgressItem:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        status:
+          type: string
+          enum: [pending, in_progress, completed]
+        notes: { type: string }
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      example:
+        id: "507f1f77bcf86cd799439011"
+        title: "[Short-term] Read 100 words per minute with 90% accuracy"
+        status: "pending"
+        notes: ""
+        createdAt: "2026-02-05T06:45:00.000Z"
+        updatedAt: "2026-02-05T06:45:00.000Z"
+    ProgressHistoryEntry:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [created, updated, completed, deleted]
+        itemTitle: { type: string }
+        notes: { type: string }
+        timestamp:
+          type: string
+          format: date-time
+      example:
+        action: "created"
+        itemTitle: "[Short-term] Read 100 words per minute"
+        notes: "Auto-created from AI analysis"
+        timestamp: "2026-02-05T06:45:00.000Z"
     StudentInput:
-       type: object
-       required: [studentName, studentAge, gradeLevel]
-       properties:
-            studentName:
-               type: string
-            studentAge:
-               type: integer
-            gradeLevel:
-               type: string
-            eligibilityStatus:
-               type: string
-               enum: [Eligible, Ineligible, Pending evaluation]
-            eligibilityDate:
-               type: string
-               format: date
+      type: object
+      required: [studentName, studentAge, gradeLevel]
+      properties:
+        studentName:
+          type: string
+        studentAge:
+          type: integer
+        gradeLevel:
+          type: string
+        eligibilityStatus:
+          type: string
+          enum: [Eligible, Ineligible, Pending evaluation]
+        eligibilityDate:
+          type: string
+          format: date
     Student:
       allOf:
         - $ref: '#/components/schemas/StudentInput'
@@ -458,14 +832,102 @@ components:
             parents:
               type: array
               items:
-                  type: string
+                type: string
             parentSurvey:
-               type: string
+              type: string
             currentPerformance:
-               type: string
+              type: string
             createdAt:
               type: string
               format: date-time
             updatedAt:
               type: string
               format: date-time
+    ExtractedIEP:
+      type: object
+      description: Structured IEP data extracted from uploaded document
+      properties:
+        studentName:
+          type: string
+        gradeLevel:
+          type: string
+        studentAge:
+          type: integer
+        eligibility:
+          type: object
+          properties:
+            status: { type: string }
+            category: { type: string }
+            fieDate: { type: string }
+        meetingInfo:
+          type: object
+          properties:
+            date: { type: string }
+            type: { type: string }
+            participants:
+              type: array
+              items: { type: string }
+        studentProfile:
+          type: object
+          properties:
+            strengths:
+              type: array
+              items: { type: string }
+            needs:
+              type: array
+              items: { type: string }
+            interests:
+              type: array
+              items: { type: string }
+        presentLevels:
+          type: object
+          properties:
+            academic: { type: string }
+            functional: { type: string }
+            behavioral: { type: string }
+            socialEmotional: { type: string }
+        goals:
+          type: array
+          items:
+            type: object
+            properties:
+              area: { type: string }
+              description: { type: string }
+              baseline: { type: string }
+              target: { type: string }
+              timeline: { type: string }
+        accommodations:
+          type: array
+          items:
+            type: object
+            properties:
+              category: { type: string }
+              description: { type: string }
+        relatedServices:
+          type: array
+          items:
+            type: object
+            properties:
+              serviceType: { type: string }
+              frequency: { type: string }
+              duration: { type: string }
+              location: { type: string }
+        scheduleOfServices:
+          type: object
+          properties:
+            generalEducation: { type: string }
+            specialEducation: { type: string }
+            esy: { type: string }
+        assessments:
+          type: object
+          properties:
+            stateAssessments:
+              type: array
+              items: { type: string }
+            withAccommodations: { type: boolean }
+        additionalInfo:
+          type: object
+          properties:
+            ssesId: { type: string }
+            homeCampus: { type: string }
+            transportation: { type: string }

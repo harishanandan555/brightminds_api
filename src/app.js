@@ -27,7 +27,7 @@ app.use(express.json());
 
 // Enable CORS
 app.use(cors({
-    origin: ['https://brightminds-app.onrender.com', 'http://localhost:5173', 'http://localhost:3000'],
+    origin: ['https://brightminds-app.onrender.com', 'http://localhost:5173', 'http://localhost:3000', 'http://localhost:5174'],
     credentials: true
 }));
 
@@ -59,10 +59,17 @@ app.use('/api/v1/projects', projects);
 app.use('/api/v1/parent', parent);
 
 // Documentation
-const swaggerDocument = YAML.load(path.join(__dirname, 'docs', 'openapi.yaml'));
-app.get('/api-docs/swagger.json', (req, res) => {
-    res.json(swaggerDocument);
-});
+try {
+    const swaggerDocument = YAML.load(path.join(__dirname, 'docs', 'openapi.yaml'));
+    console.log('Swagger Document Loaded successfully');
+
+    app.get('/api-docs/swagger.json', (req, res) => {
+        console.log('Serving swagger.json');
+        res.json(swaggerDocument);
+    });
+} catch (error) {
+    console.error('Error loading Swagger Document:', error);
+}
 
 app.get(
     '/api-docs',
