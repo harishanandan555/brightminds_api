@@ -19,7 +19,7 @@ const UserSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['teacher', 'parent'],
+        enum: ['teacher', 'parent', 'superadmin'],
         default: 'teacher',
     },
     firstName: {
@@ -34,6 +34,15 @@ const UserSchema = new mongoose.Schema({
         type: Date,
         default: Date.now,
     },
+    betaProgram: {
+        hasAccepted: { type: Boolean, default: false },
+        hasDeclined: { type: Boolean, default: false },
+        acceptedAt: { type: Date, default: null },
+        declinedAt: { type: Date, default: null },
+        hasSeenConfirmation: { type: Boolean, default: false },
+        ipAddress: { type: String, default: null },
+        userAgent: { type: String, default: null }
+    }
 });
 
 // Encrypt password using bcrypt
